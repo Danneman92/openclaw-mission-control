@@ -21,6 +21,8 @@ model AgentState {
   currentTask   String?                           // what it's doing right now
   recentActivity Json?     @default("[]")         // array of { timestamp, message }
   updatedAt      DateTime  @updatedAt
+
+  scheduledTasks ScheduledTask[]
 }
 
 /// A unit of work assigned to an agent. Agents pick up pending missions,
@@ -60,4 +62,25 @@ model DataStore {
   key       String   @id
   data      Json
   updatedAt DateTime @updatedAt
+}
+
+/// Scheduled tasks (cron jobs, heartbeats, recurring runs) registered by agents.
+/// Agents POST to /api/calendar/tasks to register or update their schedules.
+model ScheduledTask {
+  id           String    @id @default(uuid())
+  agentId      String                          // references AgentState.id
+  agent        AgentState @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  name         String                          // e.g. "Daily market scan"
+  type         String    @default("cron")      // "cron" | "heartbeat" | "one-off"
+  schedule     String?                         // cron expression e.g. "0 9 * * *", or interval like "every 5m"
+  description  String?                         // human-readable note
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
+  status       String    @default("active")    // "active" | "paused" | "failed"
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([agentId])
+  @@index([status])
+  @@index([nextRunAt])
 }
